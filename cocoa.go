@@ -78,7 +78,7 @@ func Log(message string) {
 }
 
 //export cocoaStart
-func cocoastart() {
+func cocoaStart() {
 	for _, f := range startupCallbacks {
 		f()
 	}
