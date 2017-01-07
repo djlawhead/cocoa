@@ -1,8 +1,8 @@
 #include <Cocoa/Cocoa.h>
 
 void printLog(char *msg);
-void showDialog(char *msg);
-const char* showOpenPanel(
+void cocoaDialog(char *msg);
+const char* cocoaFSDialog(
 	  char *title,
       char *fileTypesCsv,
       char *initialPath,

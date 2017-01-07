@@ -9,7 +9,7 @@ extern void cocoaUrl(char *url);
 
 - (NSString *)showFilesystemDialogWithTitle:(NSString *)title 
                                    fileTypes:(NSArray *)fileTypes
-                                 initialPath:(NSString *)initialPath
+                                 initialPath:(NSURL *)initialPathURL
                            enableMultiSelect:(BOOL)multiSelection
                                  selectFiles:(BOOL)selectFiles;
 
@@ -21,11 +21,14 @@ extern void cocoaUrl(char *url);
 
 @implementation CocoaAppDelegate
 
-- (void)applicationDidFinishLaunching:(NSNotification *)aNotification {
-	NSAppleEventManager *appleEventManager = [NSAppleEventManager sharedAppleEventManager];
+- (void)applicationWillFinishLaunching:(NSNotification *)aNotification {
+    NSAppleEventManager *appleEventManager = [NSAppleEventManager sharedAppleEventManager];
     [appleEventManager setEventHandler:self
                            andSelector:@selector(handleGetURLEvent:withReplyEvent:)
                          forEventClass:kInternetEventClass andEventID:kAEGetURL];
+}
+
+- (void)applicationDidFinishLaunching:(NSNotification *)aNotification {
 	cocoaStart();
 }
 
@@ -33,7 +36,7 @@ extern void cocoaUrl(char *url);
 {
     NSURL *url = [NSURL URLWithString:[[event paramDescriptorForKeyword:keyDirectObject] stringValue]];
     NSLog(@"handleGetURLEvent:withReplyEvent: -- Got URL %@", url);
-    cocoaUrl([url UTF8String]);
+    cocoaUrl((char *)[[url absoluteString] UTF8String]);
 }
 
 - (void)showDialogWithMessage:(NSString *)message {
@@ -42,7 +45,7 @@ extern void cocoaUrl(char *url);
 
 - (NSString *)showFilesystemDialogWithTitle:(NSString *)title 
                                     fileTypes:(NSArray *)fileTypes
-                                  initialPath:(NSString *)initialPath
+                                  initialPath:(NSURL *)initialPath
                             enableMultiSelect:(BOOL)multiSelection
                                   selectFiles:(BOOL)selectFiles {
 
@@ -56,6 +59,8 @@ extern void cocoaUrl(char *url);
     [openPanel setAllowedFileTypes:fileTypes];
     [openPanel setAllowsOtherFileTypes:YES];
     
+    NSString *retval = nil;
+    
     if ([openPanel runModal] == NSModalResponseOK)
     {
         NSMutableArray *selectedPaths = [[NSMutableArray alloc] init];
@@ -64,28 +69,26 @@ extern void cocoaUrl(char *url);
             [selectedPaths addObject:[url path]];
         }
 
-        NSString *pathsStr = [selectedPaths componentsJoinedByString:@","];
-
-        [selectedPaths release];
+        retval = [selectedPaths componentsJoinedByString:@","];
     }
         
-    return pathsStr;
+    return retval;
 }
 
 @end
 
 void printLog(char *msg) {
 	NSString *message = [NSString stringWithUTF8String:msg];
-	NSLog(message);
+	NSLog(@"Log message: %@", message);
 }
 
-void showDialog(char *msg) {
+void cocoaDialog(char *msg) {
 	dispatch_sync(dispatch_get_main_queue(), ^{
 		[(CocoaAppDelegate *)[NSApp delegate] showDialogWithMessage:[NSString stringWithUTF8String:msg]];
 	});
 }
 
-const char* showOpenPanel(char *title,
+const char* cocoaFSDialog(char *title,
     char *fileTypesCsv,
     char *initialPath,
     bool canChooseFiles,
@@ -110,7 +113,7 @@ const char* showOpenPanel(char *title,
 
     dispatch_sync(dispatch_get_main_queue(), ^{
     	CocoaAppDelegate *delegate = (CocoaAppDelegate *)[NSApp delegate];
-    	NSString *pathsCsv = [delegate showFilesystemDialogWithTitle:title
+    	NSString *pathsCsv = [delegate showFilesystemDialogWithTitle:titleStr
     		                                               fileTypes:fileTypesArr
     		                                             initialPath:initialURL
     		                                        enableMultiSelect:multiSelection
@@ -120,17 +123,17 @@ const char* showOpenPanel(char *title,
         
     return retval;
 }
-
+/*
 void runInMainThread(SEL method, id object) {
    [(CocoaAppDelegate *)[NSApp delegate]
    	performSelectorOnMainThread:method
                      withObject:object
                   waitUntilDone:YES];
 }
-
+*/
 void cocoaMain() {
 	@autoreleasepool {
-		AppDelegate *delegate = [[AppDelegate alloc] init];
+		CocoaAppDelegate *delegate = [[CocoaAppDelegate alloc] init];
 		[[NSApplication sharedApplication] setDelegate:delegate];
 		NSLog(@"CocoaRun() main loop function called and set up. [NSApp run]...");
 		[NSApp run];

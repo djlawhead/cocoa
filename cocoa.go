@@ -11,6 +11,9 @@ import "C"
 
 import (
 	"runtime"
+	"unsafe"
+	"strings"
+	"fmt"
 )
 
 type startCallback func()
@@ -28,9 +31,7 @@ func AddStartCallback(c startCallback) {
 	startupCallbacks = append(startupCallbacks, c)
 }
 
-func Start(onStart startCallback) {
-	AddStartCallback(onStart)
-
+func Start() {
 	runtime.LockOSThread()
 	C.cocoaMain()
 }
@@ -41,53 +42,56 @@ func Stop() {
 
 func ShowFileDialog(title, defaultDirectory string,
 	fileTypes []string,
-	forFiles bool, multiselect bool) {
+	forFiles bool, multiselect bool) []string {
+
 	titlePtr := C.CString(title)
 	dirPtr := C.CString(defaultDirectory)
+	filesCsv := C.CString(strings.Join(fileTypes, ","))
 
-	var filesBool C.BOOL
+	filesBool := C.bool(false)
 	if (forFiles) {
-		filesBool = C.BOOL(1)
-	} else {
-		filesBool = C.BOOL(0)
+		filesBool = C.bool(true)
 	}
 
-	var selectBool C.BOOL
-	if (selectBool) {
-		selectBool = C.BOOL(1)
-	} else {
-		selectBool = C.BOOL(0)
+	selectBool := C.bool(false)
+	if (multiselect) {
+		selectBool = C.bool(true)
 	}
 
-	C.showOpenPanel(titlePtr, dirPtr, filesBool, selectBool)
+	result := C.cocoaFSDialog(titlePtr, filesCsv, dirPtr, filesBool, selectBool)
 
 	C.free(unsafe.Pointer(titlePtr))
 	C.free(unsafe.Pointer(dirPtr))
+	C.free(unsafe.Pointer(filesCsv))
+
+	return strings.Split(C.GoString(result), ",")
 }
 
-func ShowDialog(message string) {
+func ShowDialog(message string)  {
 	msgStr := C.CString(message)
-	C.showDialog(msgStr)
+	C.cocoaDialog(msgStr)
 	C.free(unsafe.Pointer(msgStr))
 }
 
 func Log(message string) {
 	msgStr := C.CString(message)
 	C.printLog(msgStr)
-	C.free(usnafe.Pointer(msgStr))
+	C.free(unsafe.Pointer(msgStr))
 }
 
 //export cocoaStart
 func cocoaStart() {
-	for _, f := range startupCallbacks {
+	for i, f := range startupCallbacks {
+		Log(fmt.Sprintf("Startup callback %d running", i))
 		f()
 	}
 }
 
 //export cocoaUrl
-func cocoaUrl(data C.CString) {
+func cocoaUrl(data *C.char) {
 	url := C.GoString(data)
-	for _, f := range urlCallbacks {
+	for i, f := range urlCallbacks {
+		Log(fmt.Sprintf("URL callback %d running", i))
 		f(url)
 	}
 }
