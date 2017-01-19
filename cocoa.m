@@ -7,6 +7,10 @@ extern void cocoaUrl(char *url);
 
 - (void)showDialogWithMessage:(NSString *)message;
 
+- (NSUInteger)showDialogWithMessage:(NSString *)message
+                 andButtonLeftLabel:(NSString *)button1
+                   rightButtonLabel:(NSString *)button2;
+
 - (NSString *)showFilesystemDialogWithTitle:(NSString *)title 
                                    fileTypes:(NSArray *)fileTypes
                                  initialPath:(NSURL *)initialPathURL
@@ -40,7 +44,22 @@ extern void cocoaUrl(char *url);
 }
 
 - (void)showDialogWithMessage:(NSString *)message {
+    NSAlert *alert = [[NSAlert alloc] init];
+    [alert addButtonWithTitle:@"OK"];
+    [alert setInformativeText:message];
+    [alert setAlertStyle:NSAlertStyleInformational];
+    [alert runModal];
+}
 
+- (NSUInteger)showDialogWithMessage:(NSString *)message
+                 andButtonLeftLabel:(NSString *)button1
+                   rightButtonLabel:(NSString *)button2 {
+    NSAlert *alert = [[NSAlert alloc] init];
+    [alert addButtonWithTitle:button1];
+    [alert addButtonWithTitle:button2];
+    [alert setInformativeText:message];
+    [alert setAlertStyle:NSAlertStyleInformational];
+    return [alert runModal];
 }
 
 - (NSString *)showFilesystemDialogWithTitle:(NSString *)title 
