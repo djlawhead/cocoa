@@ -1,5 +1,5 @@
-package cocoa
 //+build darwin
+package cocoa
 
 /*
 #cgo darwin CFLAGS: -DDARWIN -x objective-c -fobjc-arc
@@ -71,6 +71,20 @@ func ShowDialog(message string)  {
 	msgStr := C.CString(message)
 	C.cocoaDialog(msgStr)
 	C.free(unsafe.Pointer(msgStr))
+}
+
+func ShowPrompt(message, buttonLabel, altButtonLabel string) int {
+	msgStr := C.CString(message)
+	btn1 := C.CString(buttonLabel)
+	btn2 := C.CString(altButtonLabel)
+
+	retval := c.cocoaPrompt(msgStr, btn1, btn2)
+
+	C.free(msgStr)
+	C.free(btn1)
+	C.free(btn2)
+
+	return retval
 }
 
 func Log(message string) {
