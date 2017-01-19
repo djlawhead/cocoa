@@ -107,6 +107,19 @@ void cocoaDialog(char *msg) {
 	});
 }
 
+int cocoaPrompt(char *msg, char *btn1, char *btn2) {
+    __block NSUInteger retval = 0;
+
+    dispatch_sync(dispatch_get_main_queue(), ^{
+        retval = [(CocoaAppDelegate *)[NSApp delegate] showDialogWithMessage:[NSString stringWithUTF8String:msg]
+                                                          andButtonLeftLabel:[NSString stringWithUTF8String:btn1]
+                                                            rightButtonLabel:[NSString stringWithUTF8String:btn2]];
+    });
+
+    return (int)retval;
+}
+
+
 const char* cocoaFSDialog(char *title,
     char *fileTypesCsv,
     char *initialPath,
