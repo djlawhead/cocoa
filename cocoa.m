@@ -47,7 +47,7 @@ extern void cocoaUrl(char *url);
     NSAlert *alert = [[NSAlert alloc] init];
     [alert addButtonWithTitle:@"OK"];
     [alert setInformativeText:message];
-    [alert setAlertStyle:NSAlertStyleInformational];
+    [alert setAlertStyle:0];
     [alert runModal];
 }
 
@@ -58,7 +58,7 @@ extern void cocoaUrl(char *url);
     [alert addButtonWithTitle:button1];
     [alert addButtonWithTitle:button2];
     [alert setInformativeText:message];
-    [alert setAlertStyle:NSAlertStyleInformational];
+    [alert setAlertStyle:0];
     return [alert runModal];
 }
 
@@ -108,14 +108,10 @@ void cocoaDialog(char *msg) {
 }
 
 int cocoaPrompt(char *msg, char *btn1, char *btn2) {
-    __block NSUInteger retval = 0;
-
-    dispatch_sync(dispatch_get_main_queue(), ^{
-        retval = [(CocoaAppDelegate *)[NSApp delegate] showDialogWithMessage:[NSString stringWithUTF8String:msg]
-                                                          andButtonLeftLabel:[NSString stringWithUTF8String:btn1]
-                                                            rightButtonLabel:[NSString stringWithUTF8String:btn2]];
-    });
-
+    NSUInteger retval = 0;
+    retval = [(CocoaAppDelegate *)[NSApp delegate] showDialogWithMessage:[NSString stringWithUTF8String:msg]
+                                                      andButtonLeftLabel:[NSString stringWithUTF8String:btn1]
+                                                        rightButtonLabel:[NSString stringWithUTF8String:btn2]];
     return (int)retval;
 }
 

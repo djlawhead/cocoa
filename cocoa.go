@@ -13,7 +13,6 @@ import (
 	"runtime"
 	"unsafe"
 	"strings"
-	"fmt"
 )
 
 type startCallback func()
@@ -22,6 +21,12 @@ type urlCallback func(url string)
 var (
 	startupCallbacks = []startCallback{}
 	urlCallbacks = []urlCallback{}
+)
+
+const (
+	NSAlertFirstButtonReturn  = 1000
+	NSAlertSecondButtonReturn = 1001
+	NSAlertThirdButtonReturn = 1002
 )
 
 func AddUrlCallback(c urlCallback) {
@@ -78,11 +83,11 @@ func ShowPrompt(message, buttonLabel, altButtonLabel string) int {
 	btn1 := C.CString(buttonLabel)
 	btn2 := C.CString(altButtonLabel)
 
-	retval := c.cocoaPrompt(msgStr, btn1, btn2)
+	retval := int(C.cocoaPrompt(msgStr, btn1, btn2))
 
-	C.free(msgStr)
-	C.free(btn1)
-	C.free(btn2)
+	C.free(unsafe.Pointer(msgStr)) 
+	C.free(unsafe.Pointer(btn1))
+	C.free(unsafe.Pointer(btn2))
 
 	return retval
 }
@@ -95,8 +100,7 @@ func Log(message string) {
 
 //export cocoaStart
 func cocoaStart() {
-	for i, f := range startupCallbacks {
-		Log(fmt.Sprintf("Startup callback %d running", i))
+	for _, f := range startupCallbacks {
 		f()
 	}
 }
@@ -104,8 +108,7 @@ func cocoaStart() {
 //export cocoaUrl
 func cocoaUrl(data *C.char) {
 	url := C.GoString(data)
-	for i, f := range urlCallbacks {
-		Log(fmt.Sprintf("URL callback %d running", i))
+	for _, f := range urlCallbacks {
 		f(url)
 	}
 }

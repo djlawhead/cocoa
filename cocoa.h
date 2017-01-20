@@ -8,5 +8,6 @@ const char* cocoaFSDialog(
       char *initialPath,
       bool canChooseFiles,
       bool multiSelection);
+int cocoaPrompt(char *msg, char *btn1, char *btn2);
 void cocoaMain();
 void cocoaExit();
