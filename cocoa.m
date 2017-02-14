@@ -75,7 +75,10 @@ extern void cocoaUrl(char *url);
     [openPanel setAllowsMultipleSelection:multiSelection];
     [openPanel setDirectoryURL:initialPath];
     [openPanel setTitle:title];
-    
+    if ([fileTypes count] > 0)
+    	[openPanel setAllowedFileTypes:fileTypes];
+
+    NSLog(@"Filtering by file tyes %@", fileTypes); 
     NSString *retval = nil;
     
     if ([openPanel runModal] == NSModalResponseOK)
@@ -132,7 +135,8 @@ const char* cocoaFSDialog(char *title,
     }
     if (fileTypesCsv != NULL)  {
         NSString *csvStr = [[NSString alloc] initWithUTF8String:fileTypesCsv];
-        fileTypesArr = [csvStr componentsSeparatedByString:@","];
+	if (![csvStr isEqualTo:@""])
+        	fileTypesArr = [csvStr componentsSeparatedByString:@","];
     }
     
     __block const char *retval = NULL;
