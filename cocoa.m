@@ -75,8 +75,6 @@ extern void cocoaUrl(char *url);
     [openPanel setAllowsMultipleSelection:multiSelection];
     [openPanel setDirectoryURL:initialPath];
     [openPanel setTitle:title];
-    [openPanel setAllowedFileTypes:fileTypes];
-    [openPanel setAllowsOtherFileTypes:YES];
     
     NSString *retval = nil;
     
@@ -138,7 +136,7 @@ const char* cocoaFSDialog(char *title,
     }
     
     __block const char *retval = NULL;
-
+    
     dispatch_sync(dispatch_get_main_queue(), ^{
     	CocoaAppDelegate *delegate = (CocoaAppDelegate *)[NSApp delegate];
     	NSString *pathsCsv = [delegate showFilesystemDialogWithTitle:titleStr
@@ -151,19 +149,10 @@ const char* cocoaFSDialog(char *title,
         
     return retval;
 }
-/*
-void runInMainThread(SEL method, id object) {
-   [(CocoaAppDelegate *)[NSApp delegate]
-   	performSelectorOnMainThread:method
-                     withObject:object
-                  waitUntilDone:YES];
-}
-*/
 void cocoaMain() {
 	@autoreleasepool {
 		CocoaAppDelegate *delegate = [[CocoaAppDelegate alloc] init];
 		[[NSApplication sharedApplication] setDelegate:delegate];
-		NSLog(@"CocoaRun() main loop function called and set up. [NSApp run]...");
 		[NSApp run];
 	}
 }
