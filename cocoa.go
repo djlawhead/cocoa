@@ -65,11 +65,14 @@ func ShowFileDialog(title, defaultDirectory string,
 
 	result := C.cocoaFSDialog(titlePtr, filesCsv, dirPtr, filesBool, selectBool)
 
-	C.free(unsafe.Pointer(titlePtr))
-	C.free(unsafe.Pointer(dirPtr))
-	C.free(unsafe.Pointer(filesCsv))
+	defer func() {
+		C.free(unsafe.Pointer(titlePtr))
+		C.free(unsafe.Pointer(dirPtr))
+		C.free(unsafe.Pointer(filesCsv))
+	}()
 
-	return strings.Split(C.GoString(result), ",")
+	retval := C.GoString(result)
+	return strings.Split(retval, "\n")
 }
 
 func ShowDialog(message string)  {

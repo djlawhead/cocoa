@@ -89,7 +89,8 @@ extern void cocoaUrl(char *url);
             [selectedPaths addObject:[url path]];
         }
 
-        retval = [selectedPaths componentsJoinedByString:@","];
+	NSLog(@"NSOpenPanel got paths: %@", selectedPaths);
+        retval = [selectedPaths componentsJoinedByString:@"\n"];
     }
         
     return retval;
@@ -139,7 +140,7 @@ const char* cocoaFSDialog(char *title,
         	fileTypesArr = [csvStr componentsSeparatedByString:@","];
     }
     
-    __block const char *retval = NULL;
+    __block NSString *blockret = NULL;
     
     dispatch_sync(dispatch_get_main_queue(), ^{
     	CocoaAppDelegate *delegate = (CocoaAppDelegate *)[NSApp delegate];
@@ -148,9 +149,13 @@ const char* cocoaFSDialog(char *title,
     		                                             initialPath:initialURL
     		                                        enableMultiSelect:multiSelection
     		                                              selectFiles:canChooseFiles];
-    	retval = [pathsCsv UTF8String];
+        blockret = pathsCsv;
     });
-        
+
+    char *retval = (char *)[[blockret copy] UTF8String];
+
+    NSLog(@"Retval is %s", retval);
+
     return retval;
 }
 void cocoaMain() {
