@@ -154,14 +154,14 @@ const char* cocoaFSDialog(char *title,
 
     char *retval = (char *)[[blockret copy] UTF8String];
 
-    NSLog(@"Retval is %s", retval);
-
     return retval;
 }
 void cocoaMain() {
 	@autoreleasepool {
 		CocoaAppDelegate *delegate = [[CocoaAppDelegate alloc] init];
 		[[NSApplication sharedApplication] setDelegate:delegate];
+        [[NSRunningApplication currentApplication] activateWithOptions:(NSApplicationActivateAllWindows | NSApplicationActivateIgnoringOtherApps)];
+
 		[NSApp run];
 	}
 }
