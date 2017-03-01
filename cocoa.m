@@ -3,6 +3,23 @@
 extern void cocoaStart();
 extern void cocoaUrl(char *url);
 
+void runOnMainQueueWithoutDeadlocking(void (^ block)(dispatch_semaphore_t s))
+{
+    if ([NSThread isMainThread])
+    {
+        block(nil);
+    }
+    else
+    {
+        dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            block(sema);
+        });
+        dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+        sema = nil;
+    }
+}
+
 @interface CocoaAppDelegate : NSObject <NSApplicationDelegate>
 
 - (void)showDialogWithMessage:(NSString *)message;
@@ -11,11 +28,12 @@ extern void cocoaUrl(char *url);
                  andButtonLeftLabel:(NSString *)button1
                    rightButtonLabel:(NSString *)button2;
 
-- (NSString *)showFilesystemDialogWithTitle:(NSString *)title 
-                                   fileTypes:(NSArray *)fileTypes
-                                 initialPath:(NSURL *)initialPathURL
-                           enableMultiSelect:(BOOL)multiSelection
-                                 selectFiles:(BOOL)selectFiles;
+- (void)showFilesystemDialogWithTitle:(NSString *)title 
+                                    fileTypes:(NSArray *)fileTypes
+                                  initialPath:(NSURL *)initialPath
+                            enableMultiSelect:(BOOL)multiSelection
+                                  selectFiles:(BOOL)selectFiles
+                            completionHandler:(void (^)(NSString *csv))handler;
 
 - (void)handleGetURLEvent:(NSAppleEventDescriptor *)event 
            withReplyEvent:(NSAppleEventDescriptor *)replyEvent;
@@ -36,10 +54,15 @@ extern void cocoaUrl(char *url);
 	cocoaStart();
 }
 
+- (void)applicationDidEnterBackground:(NSApplication *)app {
+}
+
+- (void)applicationDidBecomeActive:(NSApplication *)app {
+}
+
 - (void)handleGetURLEvent:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent
 {
     NSURL *url = [NSURL URLWithString:[[event paramDescriptorForKeyword:keyDirectObject] stringValue]];
-    NSLog(@"handleGetURLEvent:withReplyEvent: -- Got URL %@", url);
     cocoaUrl((char *)[[url absoluteString] UTF8String]);
 }
 
@@ -62,12 +85,12 @@ extern void cocoaUrl(char *url);
     return [alert runModal];
 }
 
-- (NSString *)showFilesystemDialogWithTitle:(NSString *)title 
+- (void)showFilesystemDialogWithTitle:(NSString *)title 
                                     fileTypes:(NSArray *)fileTypes
                                   initialPath:(NSURL *)initialPath
                             enableMultiSelect:(BOOL)multiSelection
-                                  selectFiles:(BOOL)selectFiles {
-
+                                  selectFiles:(BOOL)selectFiles
+                            completionHandler:(void (^)(NSString *csv))handler {
     NSOpenPanel *openPanel = [NSOpenPanel openPanel];
     [openPanel setFloatingPanel:YES];
     [openPanel setCanChooseFiles:selectFiles];
@@ -77,23 +100,18 @@ extern void cocoaUrl(char *url);
     [openPanel setTitle:title];
     if ([fileTypes count] > 0)
     	[openPanel setAllowedFileTypes:fileTypes];
-
-    NSLog(@"Filtering by file tyes %@", fileTypes); 
-    NSString *retval = nil;
     
-    if ([openPanel runModal] == NSModalResponseOK)
-    {
-        NSMutableArray *selectedPaths = [[NSMutableArray alloc] init];
-        for (NSURL *url in [openPanel URLs])
+    [openPanel beginWithCompletionHandler:^(NSInteger result){
+        if (result  == NSModalResponseOK)
         {
-            [selectedPaths addObject:[url path]];
+            NSMutableArray *selectedPaths = [[NSMutableArray alloc] init];
+            for (NSURL *url in [openPanel URLs])
+            {
+                [selectedPaths addObject:[url path]];
+            }
+            handler([selectedPaths componentsJoinedByString:@"\n"]);
         }
-
-	NSLog(@"NSOpenPanel got paths: %@", selectedPaths);
-        retval = [selectedPaths componentsJoinedByString:@"\n"];
-    }
-        
-    return retval;
+    }];  
 }
 
 @end
@@ -124,6 +142,8 @@ const char* cocoaFSDialog(char *title,
     bool canChooseFiles,
     bool multiSelection) {
 
+    sleep(1);
+
     NSURL *initialURL = nil;
     NSString *titleStr = nil;
     NSArray *fileTypesArr = nil;
@@ -141,27 +161,33 @@ const char* cocoaFSDialog(char *title,
     }
     
     __block NSString *blockret = NULL;
-    
-    dispatch_sync(dispatch_get_main_queue(), ^{
-    	CocoaAppDelegate *delegate = (CocoaAppDelegate *)[NSApp delegate];
-    	NSString *pathsCsv = [delegate showFilesystemDialogWithTitle:titleStr
-    		                                               fileTypes:fileTypesArr
-    		                                             initialPath:initialURL
-    		                                        enableMultiSelect:multiSelection
-    		                                              selectFiles:canChooseFiles];
-        blockret = pathsCsv;
+    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+
+    dispatch_async(dispatch_get_main_queue(), ^{
+        CocoaAppDelegate *delegate = (CocoaAppDelegate *)[NSApp delegate];
+        [delegate showFilesystemDialogWithTitle:titleStr
+            fileTypes:fileTypesArr
+            initialPath:initialURL
+            enableMultiSelect:multiSelection
+            selectFiles:canChooseFiles
+            completionHandler:^(NSString *csv) {
+                blockret = csv;
+                dispatch_semaphore_signal(sem);
+            }
+        ];
     });
-
+    [NSApp activateIgnoringOtherApps:YES];
+    dispatch_semaphore_wait(sem, DISPATCH_TIME_FOREVER);
+    sem = nil;
+        
     char *retval = (char *)[[blockret copy] UTF8String];
-
     return retval;
 }
 void cocoaMain() {
 	@autoreleasepool {
 		CocoaAppDelegate *delegate = [[CocoaAppDelegate alloc] init];
 		[[NSApplication sharedApplication] setDelegate:delegate];
-        [[NSRunningApplication currentApplication] activateWithOptions:(NSApplicationActivateAllWindows | NSApplicationActivateIgnoringOtherApps)];
-
+        //[[NSRunningApplication currentApplication] activateWithOptions:(NSApplicationActivateAllWindows | NSApplicationActivateIgnoringOtherApps)];
 		[NSApp run];
 	}
 }

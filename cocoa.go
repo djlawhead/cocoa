@@ -11,8 +11,8 @@ import "C"
 
 import (
 	"runtime"
-	"unsafe"
 	"strings"
+	"unsafe"
 )
 
 type startCallback func()
@@ -20,17 +20,17 @@ type urlCallback func(url string)
 
 var (
 	startupCallbacks = []startCallback{}
-	urlCallbacks = []urlCallback{}
+	urlCallbacks     = []urlCallback{}
 )
 
 const (
 	NSAlertFirstButtonReturn  = 1000
 	NSAlertSecondButtonReturn = 1001
-	NSAlertThirdButtonReturn = 1002
+	NSAlertThirdButtonReturn  = 1002
 )
 
 func AddUrlCallback(c urlCallback) {
-	urlCallbacks = append(urlCallbacks,c)
+	urlCallbacks = append(urlCallbacks, c)
 }
 func AddStartCallback(c startCallback) {
 	startupCallbacks = append(startupCallbacks, c)
@@ -54,12 +54,12 @@ func ShowFileDialog(title, defaultDirectory string,
 	filesCsv := C.CString(strings.Join(fileTypes, ","))
 
 	filesBool := C.bool(false)
-	if (forFiles) {
+	if forFiles {
 		filesBool = C.bool(true)
 	}
 
 	selectBool := C.bool(false)
-	if (multiselect) {
+	if multiselect {
 		selectBool = C.bool(true)
 	}
 
@@ -75,7 +75,7 @@ func ShowFileDialog(title, defaultDirectory string,
 	return strings.Split(retval, "\n")
 }
 
-func ShowDialog(message string)  {
+func ShowDialog(message string) {
 	msgStr := C.CString(message)
 	C.cocoaDialog(msgStr)
 	C.free(unsafe.Pointer(msgStr))
@@ -86,11 +86,13 @@ func ShowPrompt(message, buttonLabel, altButtonLabel string) int {
 	btn1 := C.CString(buttonLabel)
 	btn2 := C.CString(altButtonLabel)
 
-	retval := int(C.cocoaPrompt(msgStr, btn1, btn2))
+	defer func() {
+		C.free(unsafe.Pointer(msgStr))
+		C.free(unsafe.Pointer(btn1))
+		C.free(unsafe.Pointer(btn2))
+	}()
 
-	C.free(unsafe.Pointer(msgStr)) 
-	C.free(unsafe.Pointer(btn1))
-	C.free(unsafe.Pointer(btn2))
+	retval := int(C.cocoaPrompt(msgStr, btn1, btn2))
 
 	return retval
 }
