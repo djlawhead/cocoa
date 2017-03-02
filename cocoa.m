@@ -24,9 +24,10 @@ void runOnMainQueueWithoutDeadlocking(void (^ block)(dispatch_semaphore_t s))
 
 - (void)showDialogWithMessage:(NSString *)message;
 
-- (NSUInteger)showDialogWithMessage:(NSString *)message
-                 andButtonLeftLabel:(NSString *)button1
-                   rightButtonLabel:(NSString *)button2;
+- (void) showDialogWithMessage:(NSString *)message
+            andButtonLeftLabel:(NSString *)button1
+              rightButtonLabel:(NSString *)button2
+             completionHandler:(void (^)(NSModalResponse returnCode))handler;
 
 - (void)showFilesystemDialogWithTitle:(NSString *)title 
                                     fileTypes:(NSArray *)fileTypes
@@ -51,7 +52,7 @@ void runOnMainQueueWithoutDeadlocking(void (^ block)(dispatch_semaphore_t s))
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification {
-	cocoaStart();
+    cocoaStart();
 }
 
 - (void)applicationDidEnterBackground:(NSApplication *)app {
@@ -74,15 +75,17 @@ void runOnMainQueueWithoutDeadlocking(void (^ block)(dispatch_semaphore_t s))
     [alert runModal];
 }
 
-- (NSUInteger)showDialogWithMessage:(NSString *)message
-                 andButtonLeftLabel:(NSString *)button1
-                   rightButtonLabel:(NSString *)button2 {
+- (void) showDialogWithMessage:(NSString *)message
+            andButtonLeftLabel:(NSString *)button1
+              rightButtonLabel:(NSString *)button2
+             completionHandler:(void (^)(NSModalResponse returnCode))handler {
+    NSLog(@"showDialogWithMessage called");
     NSAlert *alert = [[NSAlert alloc] init];
     [alert addButtonWithTitle:button1];
     [alert addButtonWithTitle:button2];
     [alert setInformativeText:message];
     [alert setAlertStyle:0];
-    return [alert runModal];
+    handler([alert runModal]);
 }
 
 - (void)showFilesystemDialogWithTitle:(NSString *)title 
@@ -99,7 +102,7 @@ void runOnMainQueueWithoutDeadlocking(void (^ block)(dispatch_semaphore_t s))
     [openPanel setDirectoryURL:initialPath];
     [openPanel setTitle:title];
     if ([fileTypes count] > 0)
-    	[openPanel setAllowedFileTypes:fileTypes];
+        [openPanel setAllowedFileTypes:fileTypes];
     
     [openPanel beginWithCompletionHandler:^(NSInteger result){
         if (result  == NSModalResponseOK)
@@ -117,21 +120,35 @@ void runOnMainQueueWithoutDeadlocking(void (^ block)(dispatch_semaphore_t s))
 @end
 
 void printLog(char *msg) {
-	NSString *message = [NSString stringWithUTF8String:msg];
-	NSLog(@"Log message: %@", message);
+    NSString *message = [NSString stringWithUTF8String:msg];
+    NSLog(@"Log message: %@", message);
 }
 
 void cocoaDialog(char *msg) {
-	dispatch_sync(dispatch_get_main_queue(), ^{
-		[(CocoaAppDelegate *)[NSApp delegate] showDialogWithMessage:[NSString stringWithUTF8String:msg]];
-	});
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [(CocoaAppDelegate *)[NSApp delegate] showDialogWithMessage:[NSString stringWithUTF8String:msg]];
+    });
 }
 
 int cocoaPrompt(char *msg, char *btn1, char *btn2) {
-    NSUInteger retval = 0;
-    retval = [(CocoaAppDelegate *)[NSApp delegate] showDialogWithMessage:[NSString stringWithUTF8String:msg]
-                                                      andButtonLeftLabel:[NSString stringWithUTF8String:btn1]
-                                                        rightButtonLabel:[NSString stringWithUTF8String:btn2]];
+    NSLog(@"cocoaprm     called");
+    __block NSUInteger retval = 0;
+    dispatch_semaphore_t sem = dispatch_semaphore_create(0);
+    void (^handler)(NSModalResponse) = ^(NSModalResponse response){
+        NSLog(@"Responsehandler called");
+        retval = (NSUInteger)response;
+        dispatch_semaphore_signal(sem);
+    };
+    dispatch_async(dispatch_get_main_queue(), ^{
+        NSLog(@"dispatching to delegate");
+        [(CocoaAppDelegate *)[NSApp delegate] showDialogWithMessage:[NSString stringWithUTF8String:msg]
+                                                 andButtonLeftLabel:[NSString stringWithUTF8String:btn1]
+                                                   rightButtonLabel:[NSString stringWithUTF8String:btn2]
+                                                  completionHandler:handler]; 
+    });
+    [NSApp activateIgnoringOtherApps:YES];
+    dispatch_semaphore_wait(sem, DISPATCH_TIME_FOREVER);
+    sem = nil;
     return (int)retval;
 }
 
@@ -156,8 +173,8 @@ const char* cocoaFSDialog(char *title,
     }
     if (fileTypesCsv != NULL)  {
         NSString *csvStr = [[NSString alloc] initWithUTF8String:fileTypesCsv];
-	if (![csvStr isEqualTo:@""])
-        	fileTypesArr = [csvStr componentsSeparatedByString:@","];
+    if (![csvStr isEqualTo:@""])
+            fileTypesArr = [csvStr componentsSeparatedByString:@","];
     }
     
     __block NSString *blockret = NULL;
@@ -184,14 +201,14 @@ const char* cocoaFSDialog(char *title,
     return retval;
 }
 void cocoaMain() {
-	@autoreleasepool {
-		CocoaAppDelegate *delegate = [[CocoaAppDelegate alloc] init];
-		[[NSApplication sharedApplication] setDelegate:delegate];
+    @autoreleasepool {
+        CocoaAppDelegate *delegate = [[CocoaAppDelegate alloc] init];
+        [[NSApplication sharedApplication] setDelegate:delegate];
         //[[NSRunningApplication currentApplication] activateWithOptions:(NSApplicationActivateAllWindows | NSApplicationActivateIgnoringOtherApps)];
-		[NSApp run];
-	}
+        [NSApp run];
+    }
 }
 
 void cocoaExit() {
-	[NSApp terminate:nil];
+    [NSApp terminate:nil];
 }
