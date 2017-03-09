@@ -3,7 +3,7 @@ package cocoa
 
 /*
 #cgo darwin CFLAGS: -DDARWIN -x objective-c -fobjc-arc
-#cgo darwin LDFLAGS: -framework Cocoa
+#cgo darwin LDFLAGS: -framework Cocoa -framework ServiceManagement
 
 #include "cocoa.h"
 */
@@ -24,27 +24,41 @@ var (
 )
 
 const (
-	NSAlertFirstButtonReturn  = 1000
+	// NSAlertFirstButtonReturn return value when first button in a prompt is clicked
+	NSAlertFirstButtonReturn = 1000
+	// NSAlertSecondButtonReturn return value when second buttion in a prompt is clicked
 	NSAlertSecondButtonReturn = 1001
-	NSAlertThirdButtonReturn  = 1002
+	// NSAlertThirdButtonReturn return value when third button in a prompt is clicked
+	NSAlertThirdButtonReturn = 1002
 )
 
+// AutoStart sets whether app starts automatically at login.
+func AutoStart(flag bool) {
+	C.setAutoStart(C.bool(flag))
+}
+
+// AddUrlCallback adds a callback which will receive the URL app was started with.
 func AddUrlCallback(c urlCallback) {
 	urlCallbacks = append(urlCallbacks, c)
 }
+
+// AddStartCallback adds callback function which is called when app starts.
 func AddStartCallback(c startCallback) {
 	startupCallbacks = append(startupCallbacks, c)
 }
 
+// Start runs main app thread
 func Start() {
 	runtime.LockOSThread()
 	C.cocoaMain()
 }
 
+// Stop stops main app thread
 func Stop() {
 	C.cocoaExit()
 }
 
+// ShowFileDialog shows a file-system dialog
 func ShowFileDialog(title, defaultDirectory string,
 	fileTypes []string,
 	forFiles bool, multiselect bool) []string {
@@ -75,12 +89,14 @@ func ShowFileDialog(title, defaultDirectory string,
 	return strings.Split(retval, "\n")
 }
 
+// ShowDialog shows a dialog/alert message
 func ShowDialog(message string) {
 	msgStr := C.CString(message)
 	C.cocoaDialog(msgStr)
 	C.free(unsafe.Pointer(msgStr))
 }
 
+// ShowPrompt shows a yes/no dialog prompt
 func ShowPrompt(message, buttonLabel, altButtonLabel string) int {
 	msgStr := C.CString(message)
 	btn1 := C.CString(buttonLabel)
@@ -97,6 +113,7 @@ func ShowPrompt(message, buttonLabel, altButtonLabel string) int {
 	return retval
 }
 
+// Log logs a message to OS X console
 func Log(message string) {
 	msgStr := C.CString(message)
 	C.printLog(msgStr)

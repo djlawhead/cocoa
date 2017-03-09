@@ -39,10 +39,14 @@ void runOnMainQueueWithoutDeadlocking(void (^ block)(dispatch_semaphore_t s))
 - (void)handleGetURLEvent:(NSAppleEventDescriptor *)event 
            withReplyEvent:(NSAppleEventDescriptor *)replyEvent;
 
+@property (nonatomic) BOOL autoLaunch;
+
 
 @end
 
 @implementation CocoaAppDelegate
+
+@synthesize autoLaunch=_autoLaunch;
 
 - (void)applicationWillFinishLaunching:(NSNotification *)aNotification {
     NSAppleEventManager *appleEventManager = [NSAppleEventManager sharedAppleEventManager];
@@ -79,7 +83,6 @@ void runOnMainQueueWithoutDeadlocking(void (^ block)(dispatch_semaphore_t s))
             andButtonLeftLabel:(NSString *)button1
               rightButtonLabel:(NSString *)button2
              completionHandler:(void (^)(NSModalResponse returnCode))handler {
-    NSLog(@"showDialogWithMessage called");
     NSAlert *alert = [[NSAlert alloc] init];
     [alert addButtonWithTitle:button1];
     [alert addButtonWithTitle:button2];
@@ -117,7 +120,23 @@ void runOnMainQueueWithoutDeadlocking(void (^ block)(dispatch_semaphore_t s))
     }];  
 }
 
+- (void)setAutoLaunch:(BOOL)flag
+{
+    NSString *bundleIdentifier = (NSString *)[[NSBundle mainBundle] valueForKey:@"NSBundleIdentifier"];
+    SMLoginItemSetEnabled((__bridge CFStringRef)bundleIdentifier, flag);
+}
+
+- (BOOL)autoLaunch
+{
+    return _autoLaunch;
+}
+
 @end
+
+void setAutoStart(bool flag) {
+    CocoaAppDelegate *delegate = (CocoaAppDelegate *)[NSApp delegate];
+    delegate.autoLaunch = flag;
+}
 
 void printLog(char *msg) {
     NSString *message = [NSString stringWithUTF8String:msg];
@@ -131,11 +150,9 @@ void cocoaDialog(char *msg) {
 }
 
 int cocoaPrompt(char *msg, char *btn1, char *btn2) {
-    NSLog(@"cocoaprm     called");
     __block NSUInteger retval = 0;
     dispatch_semaphore_t sem = dispatch_semaphore_create(0);
     void (^handler)(NSModalResponse) = ^(NSModalResponse response){
-        NSLog(@"Responsehandler called");
         retval = (NSUInteger)response;
         dispatch_semaphore_signal(sem);
     };
@@ -204,7 +221,6 @@ void cocoaMain() {
     @autoreleasepool {
         CocoaAppDelegate *delegate = [[CocoaAppDelegate alloc] init];
         [[NSApplication sharedApplication] setDelegate:delegate];
-        //[[NSRunningApplication currentApplication] activateWithOptions:(NSApplicationActivateAllWindows | NSApplicationActivateIgnoringOtherApps)];
         [NSApp run];
     }
 }
