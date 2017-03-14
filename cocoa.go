@@ -2,8 +2,8 @@
 package cocoa
 
 /*
-#cgo darwin CFLAGS: -DDARWIN -x objective-c -fobjc-arc
-#cgo darwin LDFLAGS: -framework Cocoa -framework ServiceManagement
+#cgo darwin CFLAGS: -DDARWIN -x objective-c -fobjc-arc -Wformat-security
+#cgo darwin LDFLAGS: -framework Cocoa
 
 #include "cocoa.h"
 */
@@ -34,7 +34,17 @@ const (
 
 // AutoStart sets whether app starts automatically at login.
 func AutoStart(flag bool) {
-	C.setAutoStart(C.bool(flag))
+	C.autoStart(C.bool(flag))
+}
+
+// BundleIdentifier returns this app's bundle identifier in reverse RFC 1034 (e.g. com.bitbucket.djlawhead)
+func BundleIdentifier() string {
+	return C.GoString(C.bundlePath())
+}
+
+// BundlePath path of bundle on filesystem
+func BundlePath() string {
+	return C.GoString(C.bundleIdentifier())
 }
 
 // AddUrlCallback adds a callback which will receive the URL app was started with.
@@ -122,6 +132,7 @@ func Log(message string) {
 
 //export cocoaStart
 func cocoaStart() {
+	Log("cocoaStart called. Calling startup callbacks")
 	for _, f := range startupCallbacks {
 		f()
 	}

@@ -39,14 +39,16 @@ void runOnMainQueueWithoutDeadlocking(void (^ block)(dispatch_semaphore_t s))
 - (void)handleGetURLEvent:(NSAppleEventDescriptor *)event 
            withReplyEvent:(NSAppleEventDescriptor *)replyEvent;
 
-@property (nonatomic) BOOL autoLaunch;
+- (NSString *)bundleIdentifier;
+
+- (NSString *)bundlePath;
+
+@property (nonatomic,assign) BOOL autoLaunch;
 
 
 @end
 
 @implementation CocoaAppDelegate
-
-@synthesize autoLaunch=_autoLaunch;
 
 - (void)applicationWillFinishLaunching:(NSNotification *)aNotification {
     NSAppleEventManager *appleEventManager = [NSAppleEventManager sharedAppleEventManager];
@@ -119,28 +121,82 @@ void runOnMainQueueWithoutDeadlocking(void (^ block)(dispatch_semaphore_t s))
         }
     }];  
 }
-
-- (void)setAutoLaunch:(BOOL)flag
+// TODO forward applescript errors up to the go layer for proper error handling
+- (void)setAutoLaunch:(BOOL)flag forApplication:(NSString *)appName atPath:(NSString *)path
 {
-    NSString *bundleIdentifier = (NSString *)[[NSBundle mainBundle] valueForKey:@"NSBundleIdentifier"];
-    SMLoginItemSetEnabled((__bridge CFStringRef)bundleIdentifier, flag);
+    static const AEKeyword aeName = 'pnam';
+    static const AEKeyword aePath = 'ppth';
+    NSString *src = @"tell application \"System Events\" to get the name of every login item";
+    BOOL alreadyAdded = false;
+    NSAppleScript *script = [[NSAppleScript alloc] initWithSource:src];
+    NSDictionary *err = nil;
+    NSAppleEventDescriptor *evtDesc = [script executeAndReturnError:&err];
+    script = nil;
+    for (int i = 0; i < [evtDesc numberOfItems]; ++i)
+    {
+        NSAppleEventDescriptor *loginItem = [evtDesc descriptorAtIndex:i];
+        NSString *loginItemName = [[loginItem descriptorForKeyword:aeName] stringValue];
+        if ([loginItemName isEqualTo:appName])
+        {
+            alreadyAdded = TRUE;
+        }
+    }
+    evtDesc = nil;
+    if (flag && !alreadyAdded)
+    {
+        src = @"tell application \"System Events\" to make login item at end with properties {name:\"%s\",path:\"%s\",hidden:false}";
+    }
+    else if (!flag && alreadyAdded)
+    {
+        src = @"tell application \"System Events\" to delete login item \"%s\"";
+    }
+    script = [[NSAppleScript alloc] initWithSource:[NSString stringWithFormat:src, [appName UTF8String], [path UTF8String]]];
+    evtDesc = [script executeAndReturnError:&err]; 
 }
 
-- (BOOL)autoLaunch
-{
-    return _autoLaunch;
+- (NSString *)bundleIdentifier {
+    if ([NSBundle mainBundle] == nil) return @"com.apple.Safari";
+    return [[NSBundle mainBundle] bundleIdentifier];
+}
+
+- (NSString *)bundlePath {
+    if ([NSBundle mainBundle] == nil) return @"/Applications/Safari.app/Contents/MacOS/Safari";
+    return [[NSBundle mainBundle] bundlePath];
 }
 
 @end
 
-void setAutoStart(bool flag) {
+CocoaAppDelegate *getDelegate() {
+    return (CocoaAppDelegate *)[NSApp delegate];
+}
+
+char* bundlePath() {
+    __block char *retval = nil;
+    CocoaAppDelegate *delegate = getDelegate();
+    dispatch_sync(dispatch_get_main_queue(), ^{
+        retval = (char *)[[delegate bundlePath] UTF8String];
+    });
+    return retval;
+}
+
+char* bundleIdentifier() {
+    __block char *retval = nil;
+    CocoaAppDelegate *delegate = getDelegate();
+    dispatch_sync(dispatch_get_main_queue(), ^{
+        NSString *identifier = [delegate bundleIdentifier];
+        if (identifier == nil) identifier = @"unknown.bundle";
+        retval =  (char *)[identifier UTF8String];
+    });
+    return retval;
+}
+
+void autoStart(bool flag) {
     CocoaAppDelegate *delegate = (CocoaAppDelegate *)[NSApp delegate];
-    delegate.autoLaunch = flag;
+    [delegate setAutoLaunch:flag forApplication:[delegate bundleIdentifier] atPath:[delegate bundlePath]];
 }
 
 void printLog(char *msg) {
     NSString *message = [NSString stringWithUTF8String:msg];
-    NSLog(@"Log message: %@", message);
 }
 
 void cocoaDialog(char *msg) {
@@ -157,7 +213,6 @@ int cocoaPrompt(char *msg, char *btn1, char *btn2) {
         dispatch_semaphore_signal(sem);
     };
     dispatch_async(dispatch_get_main_queue(), ^{
-        NSLog(@"dispatching to delegate");
         [(CocoaAppDelegate *)[NSApp delegate] showDialogWithMessage:[NSString stringWithUTF8String:msg]
                                                  andButtonLeftLabel:[NSString stringWithUTF8String:btn1]
                                                    rightButtonLabel:[NSString stringWithUTF8String:btn2]
@@ -218,11 +273,11 @@ const char* cocoaFSDialog(char *title,
     return retval;
 }
 void cocoaMain() {
-    @autoreleasepool {
-        CocoaAppDelegate *delegate = [[CocoaAppDelegate alloc] init];
-        [[NSApplication sharedApplication] setDelegate:delegate];
-        [NSApp run];
-    }
+        @autoreleasepool {
+            CocoaAppDelegate *delegate = [[CocoaAppDelegate alloc] init];
+            [[NSApplication sharedApplication] setDelegate:delegate];
+            [NSApp run];
+        }
 }
 
 void cocoaExit() {

@@ -1,5 +1,4 @@
 #include <Cocoa/Cocoa.h>
-#include <ServiceManagement/ServiceManagement.h>
 void printLog(char *msg);
 void cocoaDialog(char *msg);
 const char* cocoaFSDialog(
@@ -12,3 +11,6 @@ int cocoaPrompt(char *msg, char *btn1, char *btn2);
 void cocoaMain();
 void cocoaExit();
 void setAutoStart(bool flag);
+void autoStart(bool flag);
+char* bundleIdentifier();
+char* bundlePath();
