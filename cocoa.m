@@ -119,6 +119,9 @@ void runOnMainQueueWithoutDeadlocking(void (^ block)(dispatch_semaphore_t s))
             }
             handler([selectedPaths componentsJoinedByString:@"\n"]);
         }
+        else {
+            handler(nil);
+        }
     }];  
 }
 // TODO forward applescript errors up to the go layer for proper error handling
@@ -260,7 +263,9 @@ const char* cocoaFSDialog(char *title,
             enableMultiSelect:multiSelection
             selectFiles:canChooseFiles
             completionHandler:^(NSString *csv) {
-                blockret = csv;
+                if (csv != nil) { 
+                    blockret = csv;
+                }
                 dispatch_semaphore_signal(sem);
             }
         ];
@@ -269,8 +274,11 @@ const char* cocoaFSDialog(char *title,
     dispatch_semaphore_wait(sem, DISPATCH_TIME_FOREVER);
     sem = nil;
         
-    char *retval = (char *)[[blockret copy] UTF8String];
-    return retval;
+    if (blockret != nil) {
+        char *retval = (char *)[[blockret copy] UTF8String];
+        return retval;
+    }
+    return nil;
 }
 void cocoaMain() {
         @autoreleasepool {
